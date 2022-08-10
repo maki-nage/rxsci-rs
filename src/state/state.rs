@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::cell::RefCell;
 use core::fmt::Debug;
 
 pub trait State<T: Default> {
@@ -11,7 +12,8 @@ pub trait State<T: Default> {
 }
 
 pub trait StateStore {
-    fn create_state_u64(&mut self, name: &str) -> Rc<dyn State<u64>>;
+    fn create_state_u64(&self, name: &str) -> Rc<RefCell<dyn State<u64>>>;
+    fn create_state_i32(&self, name: &str) -> Rc<RefCell<dyn State<i32>>>;
 }
 
 
@@ -25,7 +27,7 @@ impl Debug for dyn StateStore {
 enum ValueState {
     Cleared,
     NotSet,
-    Set,    
+    Set,
 }
 
 pub struct MemoryState<T> {
@@ -84,7 +86,11 @@ impl MemoryStateStore {
 }
 
 impl StateStore for MemoryStateStore {
-    fn create_state_u64(&mut self, name: &str) -> Rc<dyn State<u64>> {
-        Rc::new(MemoryState::<u64>::new())
+    fn create_state_u64(&self, name: &str) -> Rc<RefCell<dyn State<u64>>> {
+        Rc::new(RefCell::new(MemoryState::<u64>::new()))
+    }
+
+    fn create_state_i32(&self, name: &str) -> Rc<RefCell<dyn State<i32>>> {
+        Rc::new(RefCell::new(MemoryState::<i32>::new()))
     } 
 }

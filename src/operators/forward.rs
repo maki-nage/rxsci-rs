@@ -23,7 +23,7 @@ where
                                 move |event| {
                                     match event {                                        
                                         Event::PushItem(data) => {
-                                            println!("PushItem");
+                                            //println!("PushItem");
                                             sink(
                                                 Event::PushItem(data),
                                             );

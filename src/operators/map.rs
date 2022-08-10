@@ -18,12 +18,12 @@ where
     S: Into<Rc<Source<I>>>,
 {
     Box::new(move |source| {  // connect
-        println!("map entry");
+        //println!("map entry");
         let source: Rc<Source<I>> = source.into();
         {
-            println!("map0");
+            //println!("map0");
             let f = f.clone();
-            println!("map1");
+            //println!("map1");
             move |event| {
                 if let Event::Subscribe(sink, state_store) = event {
                     source(

@@ -73,6 +73,10 @@ impl SourceSubscription {
             value: i,
         }));
     }
+
+    pub fn on_completed(&self) {
+        (self.sink)(core::Event::Completed);
+    }
 }
 
 pub struct Pipeline{
@@ -93,12 +97,12 @@ impl Pipeline {
     }
 
     fn compose(&self, source: Source<i32>) -> Callbag<Never, i32> {
-        println!("{:p}", &source);
+        //println!("{:p}", &source);
         let mut callbag = source;
         
 
         for op in &self.ops {
-            println!("op: {:p}", op.op);
+            //println!("op: {:p}", op.op);
             callbag = (op.op)(callbag);
         }
         callbag
@@ -106,10 +110,10 @@ impl Pipeline {
 
     pub fn run(&self, source: Box<SourceOp>) {
         let i = [1, 2, 3, 4];
-        println!("{:p}", &i);
+        //println!("{:p}", &i);
         //let source = sources::from_iterable::from_iterable(i);
         let source = source.src;
-        println!("created source");
+        //println!("created source");
         let callbag = self.compose(source);
         /*
         let sink = sinks::for_each::for_each(Box::new(|i| {
@@ -117,25 +121,25 @@ impl Pipeline {
         }));
         sink(callbag);
         */
-        println!("run out") 
+        //println!("run out") 
     }
 
     pub fn subscribe(&self, source: Box<SourceOp>, state: Rc<dyn state::state::StateStore>, on_next: fn(i32, i32), index: i32) {
-        println!("subscribe");
+        //println!("subscribe");
         let source = source.src;
         let callbag = self.compose(source);
         let sink = operators::forward::forward();
         let push_fn = sink(callbag);
-        println!("created subscribe sink");
+        //println!("created subscribe sink");
         push_fn(
             core::Event::Subscribe(Rc::new(
                 {
                     move |event| {
                         match event {
                             Event::PushItem(item) => {
-                                println!("PushItem in subscribe: {}, {}", index, item.value);
+                                //println!("PushItem in subscribe: {}, {}", index, item.value);
                                 on_next(index, item.value);
-                                println!("done");
+                                //println!("done");
                             },
                             Event::PollItem => {
                                 panic!("sink must not pull");
@@ -164,6 +168,14 @@ pub extern "C" fn map(f: fn(i32, i32) -> i32, index: i32) -> *const Operator {
     Box::into_raw(Box::new(Operator::new(op)))
 }
 
+
+#[no_mangle]
+pub extern "C" fn count(reduce: bool) -> *const Operator {
+    // c_void
+    let op = operators::count::count(reduce);
+    Box::into_raw(Box::new(Operator::new(op)))
+}
+
 /*
 no_mangle]
 pub extern "C" fn for_each() -> *const Operator {
@@ -184,7 +196,7 @@ pub extern "C" fn from_external_source(f: fn(i32, i64, *const SourceSubscription
             Event::Subscribe(sink, state_store) => {
                 let mut s = Box::new(SourceSubscription::new(sink, index));
                 let raw_s = Box::into_raw(s);
-                println!("receive subscribe from_external_source");
+                //println!("receive subscribe from_external_source");
                 f(0, index, raw_s);
             }
             _ => {
@@ -201,6 +213,11 @@ pub extern "C" fn external_source_on_next(p_source: *mut SourceSubscription, i: 
     source.on_next(i);
 }
 
+#[no_mangle]
+pub extern "C" fn external_source_on_completed(p_source: *mut SourceSubscription) {
+    let mut source = unsafe { &mut (*p_source) };
+    source.on_completed();
+}
 
 #[no_mangle]
 pub extern "C" fn to_external_sink(f: fn(i: i32), index: i32) -> *const Operator {
@@ -229,21 +246,21 @@ pub extern "C" fn create_pipeline() -> *mut Pipeline {
 #[no_mangle]
 pub extern "C" fn pipeline_add_operator(pipeline_ptr: *mut Pipeline, 
                                         op_ptr: *mut Operator) {
-    println!("enter");
+    //println!("enter");
     if pipeline_ptr.is_null() {
         log::error!("provided pipeline is NULL");
         //return ptr::null();
         return;
     }
-    println!("pipeline addr: {:p}", pipeline_ptr);
+    //println!("pipeline addr: {:p}", pipeline_ptr);
     let mut pipeline = unsafe { &mut (*pipeline_ptr) };
     //let mut pipeline = unsafe { Box::from_raw(pipeline_ptr) };
     //let mut op = unsafe { &(*op_ptr) };
-    println!("op addr: {:p}", op_ptr);
+    //println!("op addr: {:p}", op_ptr);
     let mut op: Box<Operator> = unsafe { Box::from_raw(op_ptr) };
     //let mut raw_p = unsafe { &mut *(p_pipeline as *mut Pipeline) };
     //let mut pipeline = unsafe { Box::from_raw(raw_p) };
-    println!("value: {}", &pipeline.value);
+    //println!("value: {}", &pipeline.value);
     
     //let op = unsafe { Box::from_raw(p_op) };
     pipeline.add_operator(op);
@@ -277,13 +294,11 @@ pub extern "C" fn pipeline_subscribe(
     let mut pipeline = unsafe { &mut (*p_pipeline) };
     let mut source: Box<SourceOp> = unsafe { Box::from_raw(p_source) };
 
-    println!("pipeline_subscribe");
+    //println!("pipeline_subscribe");
     ////let mut state_store: Rc<dyn state::state::StateStore> = unsafe { Rc::from_raw(p_state_store) };
     let state_store: Rc<StateStore> = unsafe { Rc::from_raw(p_state_store) };
     //let mut state_store = Rc::new(state::state::MemoryStateStore::new());
 
-    //on_next(0, 0);
-    println!("done next");
     pipeline.subscribe(source, state_store.store.clone(), on_next, index);
 }
 

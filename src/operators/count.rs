@@ -29,20 +29,26 @@ where
                 if let Event::Subscribe(sink, state_store) = event {
                     //let state = State { count: vec![0]};
                     //let state = ArcSwap::from_pointee(0);
+                    let state = state_store.create_state_i32("count");
+                    {
+                        let key = vec![0];
+                        let mut s = state.borrow_mut();
+                        s.create_key(&key);                        
+                    }
                     source(
-                        Event::Subscribe(
+                        Event::Subscribe(                            
                             Rc::new({
                                 move |event| {
                                     match event {
                                         Event::PushItem(item) => {
-                                            //state.count[0] += 1;
-                                            //state.store(Arc::new(**state.load() + 1));
+                                            let mut s = state.borrow_mut();
+                                            let value = *s.get(&item.key) + 1;
+                                            s.set(&item.key, &Rc::new(value));
                                             if reduce == false {
                                                 sink(
                                                     Event::PushItem(Item {
                                                         key: item.key,
-                                                        //value: **state.load(),
-                                                        value: 0,
+                                                        value: value,
                                                     }),
                                                 );
                                             }
@@ -51,6 +57,17 @@ where
                                             panic!("source must not pull");
                                         },
                                         Event::Completed => {
+                                            if reduce == true {
+                                                let key = vec![0];
+                                                let mut s = state.borrow_mut();
+                                                let value = *s.get(&key);
+                                                sink(
+                                                    Event::PushItem(Item {
+                                                        key: key,
+                                                        value: value,
+                                                    }),
+                                                );
+                                            }
                                             sink(Event::Completed);
                                         },
                                         _ => {

@@ -8,21 +8,26 @@ map_mappers = []
 
 @ffi.def_extern()
 def map_mapper_cbk(index, i):
-    print("map_mapper_cbk {} {}".format(index, i))
+    #print("map_mapper_cbk {} {}".format(index, i))
     return map_mappers[index](i)
 
 @ffi.def_extern()
 def from_external_source_cbk(cmd, index, sink):
     if cmd == 0:  # subscribe
-        print("subscribe from_external_source_cbk {}".format(index))
-        #source = external_sources[index]()
+        #print("subscribe from_external_source_cbk {}".format(index))
 
         def on_next(i):
-            print(f"rx on next: {i}")
+            #print(f"rx on next: {i}")
             lib.external_source_on_next(sink, i)
+
+        def on_completed():
+            #print(f"rx on completed")
+            lib.external_source_on_completed(sink)
+
         source = external_sources[index]
         source.subscribe(
             on_next=on_next,
+            on_completed=on_completed,
         )
         #for i in source:
         #    lib.external_source_on_next(sink, i)
@@ -32,6 +37,8 @@ def map(mapper):
     map_mappers.append(mapper)
     return lib.map(lib.map_mapper_cbk, len(map_mappers)-1)
 
+def count(reduce):
+    return lib.count(reduce)
 
 def from_external_source(gen):
     external_sources.append(gen)
@@ -66,9 +73,9 @@ external_sinks = []
 
 @ffi.def_extern()
 def pipeline_on_next_cbk(index, i):
-    print('pipeline_on_next_cbk')
+    #print('pipeline_on_next_cbk')
     observer = external_sinks[index]
-    print(observer)
+    #print(observer)
     if observer.on_next is not None:
         observer.on_next(i)
 

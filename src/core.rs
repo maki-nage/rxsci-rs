@@ -7,7 +7,7 @@ use std::{
 };
 use crate::state::state::{StateStore};
 
-pub type Key = Vec<u32>;
+pub type Key = Vec<usize>;
 
 #[derive(Clone, Debug)]
 pub struct Item<V> {
@@ -18,8 +18,8 @@ pub struct Item<V> {
 #[derive(Clone, Debug)]
 pub enum Event<I, O> {
     Subscribe(Rc<Callbag<O, I>>, Rc<dyn StateStore>),
-    KeyCreated(u32),
-    KeyCompleted(u32),
+    KeyCreated(u64),
+    KeyCompleted(u64),
     PushItem(Item<I>),
     //PushNonFatalError(dyn Error),
     PollItem,

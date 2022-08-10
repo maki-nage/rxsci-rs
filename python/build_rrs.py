@@ -4,12 +4,14 @@ ffibuilder = FFI()
 ffibuilder.cdef("""
     extern "Python" int map_mapper_cbk(int, int);
     extern void* map(void*, int);
+    extern void* count(bool);
 
     extern const void* create_memory_state_store();
 
     extern "Python" void from_external_source_cbk(int, int, void*);
     extern void* from_external_source(void*, int64_t);
     extern void external_source_on_next(void* p_source, int32_t i);
+    extern void external_source_on_completed(void* p_source);
 
     //extern void* for_each();
 
@@ -34,7 +36,7 @@ ffibuilder.set_source("_rrs",
     include_dirs=[
         '../include',
     ],
-    extra_objects=["../target/debug/librrs.a"],
+    extra_objects=["../target/release/librrs.a"],
     libraries=['dl'],
     #extra_link_args=['-Wl,-rpath=../target/release/']
 )
