@@ -6,49 +6,61 @@ use crate::{
     Item, Event, Source,
 };
 
+use crate::flextuple;
+
 
 struct State {
     pub count: Vec<i32>,
 }
 
+/// counts the number of items 
+/// schema must have one u64 field named value
 pub fn count<
     I: 'static,
     //O: 'static,
     S,
 >(
-    reduce: bool,
-) -> Box<dyn Fn(S) -> Source<i32>>
+    schema: Rc<flextuple::FlexSchema>,
+    reduce: bool,    
+) -> Box<dyn Fn(S) -> Source<Rc<flextuple::FlexTuple>>>
 where
     S: Into<Rc<Source<I>>>,
     //O: Into<i32>,
 {
+    println!("count factory");
+    let schema_clone = schema.clone();
     Box::new(move |source| {  // connect
         let source: Rc<Source<I>> = source.into();
         {
+            let schema_clone1 = schema_clone.clone();
             move |event| {
                 if let Event::Subscribe(sink, state_store) = event {
                     //let state = State { count: vec![0]};
                     //let state = ArcSwap::from_pointee(0);
-                    let state = state_store.create_state_i32("count");
+                    let state = state_store.create_state_i64("count");
                     {
                         let key = vec![0];
                         let mut s = state.borrow_mut();
                         s.create_key(&key);                        
                     }
+                    let schema_clone2 = schema_clone1.clone();
                     source(
                         Event::Subscribe(                            
-                            Rc::new({
+                            Rc::new({                                
                                 move |event| {
+                                    let schema_clone3 = schema_clone2.clone();
                                     match event {
                                         Event::PushItem(item) => {
                                             let mut s = state.borrow_mut();
                                             let value = *s.get(&item.key) + 1;
                                             s.set(&item.key, &Rc::new(value));
                                             if reduce == false {
+                                                let mut ft = flextuple::FlexTuple::new(schema_clone3);
+                                                ft.add_int64(value);
                                                 sink(
                                                     Event::PushItem(Item {
                                                         key: item.key,
-                                                        value: value,
+                                                        value: Rc::new(ft),
                                                     }),
                                                 );
                                             }
@@ -61,10 +73,13 @@ where
                                                 let key = vec![0];
                                                 let mut s = state.borrow_mut();
                                                 let value = *s.get(&key);
+
+                                                let mut ft = flextuple::FlexTuple::new(schema_clone3);
+                                                ft.add_int64(value);
                                                 sink(
                                                     Event::PushItem(Item {
                                                         key: key,
-                                                        value: value,
+                                                        value: Rc::new(ft),
                                                     }),
                                                 );
                                             }

@@ -4,8 +4,6 @@ import rx.operators as ops
 import rxsci as rs
 
 from rrs import rrs
-from _rrs import ffi
-
 
 def gen():
     for i in range(30000):

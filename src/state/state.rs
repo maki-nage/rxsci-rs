@@ -12,7 +12,7 @@ pub trait State<T: Default> {
 }
 
 pub trait StateStore {
-    fn create_state_u64(&self, name: &str) -> Rc<RefCell<dyn State<u64>>>;
+    fn create_state_i64(&self, name: &str) -> Rc<RefCell<dyn State<i64>>>;
     fn create_state_i32(&self, name: &str) -> Rc<RefCell<dyn State<i32>>>;
 }
 
@@ -86,8 +86,8 @@ impl MemoryStateStore {
 }
 
 impl StateStore for MemoryStateStore {
-    fn create_state_u64(&self, name: &str) -> Rc<RefCell<dyn State<u64>>> {
-        Rc::new(RefCell::new(MemoryState::<u64>::new()))
+    fn create_state_i64(&self, name: &str) -> Rc<RefCell<dyn State<i64>>> {
+        Rc::new(RefCell::new(MemoryState::<i64>::new()))
     }
 
     fn create_state_i32(&self, name: &str) -> Rc<RefCell<dyn State<i32>>> {

@@ -1,27 +1,30 @@
 import rx
-from rrs import rrs
+from rrs import rrs, FlexTuple
 from _rrs import ffi
 
-
+class Item(FlexTuple):
+    index: int
+    value: float
 
 def gen():
     for i in [1,2,3,4]:
-        yield i
+        yield Item(i, float(i/2))
 
 try:
-    map1 = rrs.map(lambda i: i+1)
-    map2 = rrs.map(lambda i: i*2)
+    #map1 = rrs.map(lambda i: i)
+    #map2 = rrs.map(lambda i: i)
     count1 = rrs.count(reduce=True)
+    print("created count")
     #source = rrs.from_external_source(gen)
-    source = rrs.from_external_source(rx.from_([1,2,3,4, 5]))
+    source = rrs.from_external_source(rx.from_(gen()))
 
     pipeline = rrs.create_pipeline()
     print("created")
     print(pipeline)
-    rrs.pipeline_add_operator(pipeline, map1)
-    print("added map")
+    #rrs.pipeline_add_operator(pipeline, map1)
+    #print("added map")
     print(pipeline)
-    rrs.pipeline_add_operator(pipeline, map2)
+    #rrs.pipeline_add_operator(pipeline, map2)
     rrs.pipeline_add_operator(pipeline, count1)
     print("added count")
 

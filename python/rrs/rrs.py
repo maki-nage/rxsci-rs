@@ -2,6 +2,11 @@ from collections import namedtuple
 import rx
 from _rrs import ffi, lib
 
+from .flextuple import FlexTuple
+
+
+class FlexInt(FlexTuple):
+    value: int
 
 map_mappers = []
 
@@ -17,8 +22,8 @@ def from_external_source_cbk(cmd, index, sink):
         #print("subscribe from_external_source_cbk {}".format(index))
 
         def on_next(i):
-            #print(f"rx on next: {i}")
-            lib.external_source_on_next(sink, i)
+            #print(f"rx on next: {i}")            
+            lib.external_source_on_next(sink, i.__ft)
 
         def on_completed():
             #print(f"rx on completed")
@@ -38,7 +43,7 @@ def map(mapper):
     return lib.map(lib.map_mapper_cbk, len(map_mappers)-1)
 
 def count(reduce):
-    return lib.count(reduce)
+    return lib.count(FlexInt.__schema__, reduce)
 
 def from_external_source(gen):
     external_sources.append(gen)
@@ -77,7 +82,7 @@ def pipeline_on_next_cbk(index, i):
     observer = external_sinks[index]
     #print(observer)
     if observer.on_next is not None:
-        observer.on_next(i)
+        observer.on_next(i.__ft)
 
 
 def pipeline_subscribe(pipeline, source, state_store, on_next=None, on_error=None, on_completed=None):
