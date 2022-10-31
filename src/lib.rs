@@ -4,7 +4,7 @@ pub use crate::core::*;
 use never::Never;
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::ffi::CStr;
+use std::ffi::{CStr, c_void};
 use std::os::raw::c_char;
 
 use env_logger;
@@ -73,7 +73,7 @@ impl SourceSubscription {
     pub fn on_next(&self, i: Rc<flextuple::FlexTuple>) {
         (self.sink)(core::Event::PushItem(core::Item {
             key: vec![0],
-            value: i,
+            value: i.clone(),
         }));
     }
 
@@ -134,7 +134,7 @@ impl Pipeline {
         &self,
         source: Box<SourceOp>, 
         state: Rc<dyn state::state::StateStore>,
-        on_next: fn(i32, Rc<flextuple::FlexTuple>),
+        on_next: fn(i32, *const flextuple::FlexTuple),
         index: i32
     ) {
         //println!("subscribe");
@@ -150,7 +150,7 @@ impl Pipeline {
                         match event {
                             Event::PushItem(item) => {
                                 //println!("PushItem in subscribe: {}, {}", index, item.value);
-                                on_next(index, item.value);
+                                on_next(index, Rc::into_raw(item.value));
                                 //println!("done");
                             },
                             Event::PollItem => {
@@ -189,11 +189,8 @@ pub extern "C" fn count(
     schema: *const Rc<flextuple::FlexSchema>,
     reduce: bool,    
 ) -> *const Operator {
-    println!("rs count");
     let schema = unsafe { &(*schema) };
-    println!("rs count1");
     let op = operators::count::count(schema.clone(), reduce);
-    println!("rs count2");
     Box::into_raw(Box::new(Operator::new(op)))
 }
 
@@ -234,11 +231,11 @@ pub extern "C" fn from_external_source(
 #[no_mangle]
 pub extern "C" fn external_source_on_next(
     p_source: *mut SourceSubscription,
-    i: *const Rc<flextuple::FlexTuple>
+    i: *const FlexTupleWrap
 ) {
     let mut source = unsafe { &mut (*p_source) };
     let i = unsafe { &(*i) };
-    source.on_next(i.clone());
+    source.on_next(i.ft.clone());
 }
 
 #[no_mangle]
@@ -315,7 +312,7 @@ pub extern "C" fn pipeline_subscribe(
     p_pipeline: *mut Pipeline,
     p_source: *mut SourceOp,
     p_state_store: *mut StateStore,
-    on_next: fn(i32, Rc<flextuple::FlexTuple>),
+    on_next: fn(i32, *const flextuple::FlexTuple),
     index: i32,
 ) {
     //let mut pipeline = unsafe { Box::from_raw(p_pipeline) };
@@ -343,90 +340,200 @@ pub extern "C" fn compose(p_op1: *mut Operator<i32>, p_op2: *mut Operator<i32>) 
 */
 
 
-/* FlexTuple */
+///////////////////////////////////////////////
+// FlexTupleSchema
+///////////////////////////////////////////////
+pub struct FlexSchemaWrap {
+    schema: Rc<flextuple::FlexSchema>
+}
 
-#[no_mangle]
-pub extern "C" fn flextuple_schema_create(name: *const c_char) -> *const flextuple::FlexSchema {
-    let cstr = unsafe { CStr::from_ptr(name) };
-    let rname = String::from_utf8_lossy(cstr.to_bytes()).to_string();
-    println!("flextuple schema name: {}", rname);
-    Rc::into_raw(Rc::new(flextuple::FlexSchema::new(rname)))
+impl FlexSchemaWrap {
+    fn new(schema: Rc<flextuple::FlexSchema>) -> Self {
+        FlexSchemaWrap {
+            schema:schema
+        }
+    }
 }
 
 #[no_mangle]
-pub extern "C" fn flextuple_schema_delete(
-    p_self: *const Rc<flextuple::FlexSchema>
+pub extern "C" fn flextuple_schema_builder(
+    name: *const c_char,
+) -> *mut flextuple::FlexSchema {
+    let cstr = unsafe { CStr::from_ptr(name) };
+    let rname = String::from_utf8_lossy(cstr.to_bytes()).to_string();
+    let schema = Box::new(flextuple::FlexSchema::new(rname));
+    Box::into_raw(schema)
+}
+
+#[no_mangle]
+pub extern "C" fn flextuple_schema_build(
+    p_self: *mut flextuple::FlexSchema,
+) -> *const FlexSchemaWrap {
+    let schema = unsafe { Box::from_raw(p_self) };
+    let schema_wrap = Box::new(FlexSchemaWrap::new(
+        Rc::from(schema)
+    ));
+    Box::into_raw(schema_wrap)
+}
+
+#[no_mangle]
+pub extern "C" fn flextuple_schema_set_handle(
+    p_self: *mut flextuple::FlexSchema,
+    handle: *const c_void,
+) -> *mut flextuple::FlexSchema {
+    if p_self.is_null() {
+        panic!("flextuple_schema_get_handle error: FlexSchema is NULL");
+    }
+
+    let mut schema = unsafe { Box::from_raw(p_self) };
+    schema.set_handle(handle);
+    Box::into_raw(schema)
+}
+
+
+#[no_mangle]
+pub extern "C" fn flextuple_schema_drop(
+    p_self: *mut FlexSchemaWrap,
 ) {
-    unsafe { Rc::from_raw(p_self) };
+    println!("deref schema");
+    unsafe { Box::from_raw(p_self) };
 }
 
 #[no_mangle]
 pub extern "C" fn flextuple_schema_add_int64(
     p_self: *mut flextuple::FlexSchema,
-    name: *const c_char)
-{
+    name: *const c_char
+) -> *mut flextuple::FlexSchema {
     if p_self.is_null() {
-        log::error!("flextuple_schema_add_int64 error: FlexSchema is NULL");
-        return;
+        panic!("flextuple_schema_add_int64 error: FlexSchema is NULL");
     }
 
     if name.is_null() {
-        log::error!("flextuple_schema_add_int64 error: name is NULL");
-        return;
+        panic!("flextuple_schema_add_int64 error: name is NULL");
     }
 
     let cstr = unsafe { CStr::from_ptr(name) };
     let name = String::from_utf8_lossy(cstr.to_bytes()).to_string();
 
-    let mut schema = unsafe { &mut (*p_self) };
+    let mut schema = unsafe { Box::from_raw(p_self) };
     schema.add_int64(name);
+    Box::into_raw(schema)
 }
 
+#[no_mangle]
+pub extern "C" fn flextuple_schema_get_handle(
+    p_self: *const FlexSchemaWrap,
+) -> *const c_void {
+    if p_self.is_null() {
+        panic!("flextuple_schema_get_handle error: FlexSchema is NULL");
+    }
+
+    let mut schema_wrap = unsafe { &(*p_self) };
+    schema_wrap.schema.get_handle()
+}
+
+///////////////////////////////////////////////
+// FlexTuple
+///////////////////////////////////////////////
+pub struct FlexTupleWrap {
+    ft: Rc<flextuple::FlexTuple>
+}
+
+impl FlexTupleWrap {
+    fn new(ft: Rc<flextuple::FlexTuple>) -> Self {
+        FlexTupleWrap {
+            ft:ft
+        }
+    }
+}
 
 #[no_mangle]
-pub extern "C" fn flextuple_create(
-    p_schema: *const Rc<flextuple::FlexSchema>
-) -> *mut flextuple::FlexTuple {
+pub extern "C" fn flextuple_builder(
+    p_schema: *const FlexSchemaWrap,
+) -> *const flextuple::FlexTuple {
     //let schema = unsafe { Rc::from_raw(p_schema) };
     let schema = unsafe { &(*p_schema) };
 
-    Box::into_raw(Box::new(flextuple::FlexTuple::new(schema.clone())))
+    Box::into_raw(Box::new(flextuple::FlexTuple::new(
+        schema.schema.clone()
+    )))
+}
+
+#[no_mangle]
+pub extern "C" fn flextuple_build(
+    p_self: *mut flextuple::FlexTuple,
+) -> *const FlexTupleWrap {
+    let ft = unsafe { Box::from_raw(p_self) };
+    let ft_wrap = Box::new(FlexTupleWrap::new(
+        Rc::from(ft)
+    ));
+    Box::into_raw(ft_wrap)
+}
+
+#[no_mangle]
+pub extern "C" fn flextuple_build_from_native(
+    p_self: *mut flextuple::FlexTuple,
+) -> *const FlexTupleWrap {
+    let ft = unsafe { Rc::from_raw(p_self) };
+    let ft_wrap = Box::new(FlexTupleWrap::new(ft));
+    Box::into_raw(ft_wrap)
+}
+
+#[no_mangle]
+pub extern "C" fn flextuple_drop(
+    p_self: *mut FlexTupleWrap
+) {
+    unsafe { Box::from_raw(p_self) };
 }
 
 #[no_mangle]
 pub extern "C" fn flextuple_add_int64(
     p_ft: *mut flextuple::FlexTuple,
     value: i64
-) {
-    let ft = unsafe { &mut (*p_ft) };
+) -> *mut flextuple::FlexTuple {
+    let mut ft = unsafe { Box::from_raw(p_ft) };
     ft.add_int64(value);
+    Box::into_raw(ft)
 }
 
 #[no_mangle]
 pub extern "C" fn flextuple_add_float64(
     p_ft: *mut flextuple::FlexTuple,
     value: f64
-) {
-    let ft = unsafe { &mut (*p_ft) };
+) -> *mut flextuple::FlexTuple {
+    let mut ft = unsafe { Box::from_raw(p_ft) };
     ft.add_float64(value);
+    Box::into_raw(ft)
+}
+
+#[no_mangle]
+pub extern "C" fn flextuple_get_handle(
+    p_self: *const FlexTupleWrap
+) -> *const c_void {
+    if p_self.is_null() {
+        panic!("flextuple_get_handle error: FlexTuple is NULL");
+    }
+
+    let mut ft_wrap = unsafe { &(*p_self) };    
+    ft_wrap.ft.get_handle()
 }
 
 #[no_mangle]
 pub extern "C" fn flextuple_get_int64_at(
-    p_ft: *const flextuple::FlexTuple,
+    p_self: *const FlexTupleWrap,
     index: usize
 ) -> i64
 {
-    let ft = unsafe { &(*p_ft) };
-    ft.get_int64_at(index)
+    let mut ft_wrap = unsafe { &(*p_self) };
+    ft_wrap.ft.get_int64_at(index)
 }
 
 #[no_mangle]
 pub extern "C" fn flextuple_get_float64_at(
-    p_ft: *const flextuple::FlexTuple,
+    p_self: *const FlexTupleWrap,
     index: usize
 ) -> f64
 {
-    let ft = unsafe { &(*p_ft) };
-    ft.get_float64_at(index)
+    let mut ft_wrap = unsafe { &(*p_self) };
+    ft_wrap.ft.get_float64_at(index)
 }

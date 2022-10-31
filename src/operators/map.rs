@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::{
     Item, Event, Source,
 };
+use crate::flextuple;
 
 
 pub fn map<

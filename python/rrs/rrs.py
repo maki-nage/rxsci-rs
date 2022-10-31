@@ -14,7 +14,12 @@ map_mappers = []
 @ffi.def_extern()
 def map_mapper_cbk(index, i):
     #print("map_mapper_cbk {} {}".format(index, i))
-    return map_mappers[index](i)
+    wrap = lib.flextuple_build_from_native(i)
+    t = ffi.from_handle(lib.flextuple_get_handle(wrap))
+    i = t()
+    i.init_from_native(wrap)
+    r =  map_mappers[index](i)
+    return r.__ft
 
 @ffi.def_extern()
 def from_external_source_cbk(cmd, index, sink):
@@ -22,8 +27,9 @@ def from_external_source_cbk(cmd, index, sink):
         #print("subscribe from_external_source_cbk {}".format(index))
 
         def on_next(i):
-            #print(f"rx on next: {i}")            
+            #print(f"rx on next: {i}")
             lib.external_source_on_next(sink, i.__ft)
+            #print(f"rx on next done: {i}")
 
         def on_completed():
             #print(f"rx on completed")
@@ -82,7 +88,12 @@ def pipeline_on_next_cbk(index, i):
     observer = external_sinks[index]
     #print(observer)
     if observer.on_next is not None:
-        observer.on_next(i.__ft)
+        wrap = lib.flextuple_build_from_native(i)
+        t = ffi.from_handle(lib.flextuple_get_handle(wrap))
+        i = t()
+        i.init_from_native(wrap)
+
+        observer.on_next(i)
 
 
 def pipeline_subscribe(pipeline, source, state_store, on_next=None, on_error=None, on_completed=None):

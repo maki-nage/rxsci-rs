@@ -7,13 +7,13 @@ class Item(FlexTuple):
     value: float
 
 def gen():
-    for i in [1,2,3,4]:
+    for i in [1,2,3,4, 5]:
         yield Item(i, float(i/2))
 
 try:
-    #map1 = rrs.map(lambda i: i)
+    map1 = rrs.map(lambda i: i)
     #map2 = rrs.map(lambda i: i)
-    count1 = rrs.count(reduce=True)
+    count1 = rrs.count(reduce=False)
     print("created count")
     #source = rrs.from_external_source(gen)
     source = rrs.from_external_source(rx.from_(gen()))
@@ -23,7 +23,6 @@ try:
     print(pipeline)
     #rrs.pipeline_add_operator(pipeline, map1)
     #print("added map")
-    print(pipeline)
     #rrs.pipeline_add_operator(pipeline, map2)
     rrs.pipeline_add_operator(pipeline, count1)
     print("added count")

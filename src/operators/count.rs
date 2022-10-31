@@ -27,7 +27,6 @@ where
     S: Into<Rc<Source<I>>>,
     //O: Into<i32>,
 {
-    println!("count factory");
     let schema_clone = schema.clone();
     Box::new(move |source| {  // connect
         let source: Rc<Source<I>> = source.into();

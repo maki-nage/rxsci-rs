@@ -1,4 +1,6 @@
 use std::rc::Rc;
+use std::ffi::c_void;
+use std::ptr::null;
 //use flexbuffers
 //use flexbuffers::{BitWidth, Builder, Reader, ReaderError};
 
@@ -30,8 +32,9 @@ pub struct SchemaField {
     field_type: SchemaFieldType,
 }
 
-pub struct FlexSchema {
+pub struct FlexSchema {    
     name: String,
+    handle: *const c_void,
     fields: Vec<SchemaField>,
 }
 pub struct FlexTuple {
@@ -50,10 +53,19 @@ impl SchemaField {
 
 impl FlexSchema {
     pub fn new(name: String) -> Self {
-        FlexSchema {
+        FlexSchema {            
             name: name,
+            handle: null(),
             fields: Vec::new(),
         }
+    }
+
+    pub fn set_handle(&mut self, handle: *const c_void) {
+        self.handle = handle;
+    }
+
+    pub fn get_handle(&self) -> *const c_void {
+        self.handle
     }
 
     pub fn add_int64(&mut self, name: String) {
@@ -69,9 +81,15 @@ impl FlexTuple {
     */
     pub fn new(schema: Rc<FlexSchema>) -> Self {
         FlexTuple {
-            schema: schema,
+            schema: schema.clone(),
             data: Vec::new(),
         }
+    }
+
+    pub fn get_handle(&self) -> *const c_void {
+        //println!("get handle schema: {}", self.schema.name);
+        //println!("get_handle: {:?}", self.schema.handle);
+        self.schema.get_handle()
     }
 
     pub fn add_int64(&mut self, value: i64) {
