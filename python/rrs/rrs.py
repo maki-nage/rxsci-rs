@@ -13,11 +13,11 @@ map_mappers = []
 
 @ffi.def_extern()
 def map_mapper_cbk(index, i):
-    #print("map_mapper_cbk {} {}".format(index, i))
     wrap = lib.flextuple_build_from_native(i)
     t = ffi.from_handle(lib.flextuple_get_handle(wrap))
     i = t()
     i.init_from_native(wrap)
+
     r =  map_mappers[index](i)
     return r.__ft
 

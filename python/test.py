@@ -21,7 +21,7 @@ try:
     pipeline = rrs.create_pipeline()
     print("created")
     print(pipeline)
-    #rrs.pipeline_add_operator(pipeline, map1)
+    rrs.pipeline_add_operator(pipeline, map1)
     #print("added map")
     #rrs.pipeline_add_operator(pipeline, map2)
     rrs.pipeline_add_operator(pipeline, count1)

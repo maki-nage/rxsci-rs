@@ -2,7 +2,7 @@ from cffi import FFI
 ffibuilder = FFI()
 
 ffibuilder.cdef("""
-    extern "Python" int map_mapper_cbk(int, int);
+    extern "Python" void* map_mapper_cbk(int, void*);
     extern void* map(void*, int);
     extern void* count(const void* schema, bool);
 

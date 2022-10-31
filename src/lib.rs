@@ -173,12 +173,14 @@ impl Pipeline {
 
 #[no_mangle]
 pub extern "C" fn map(
-    f: fn(i32, Rc<flextuple::FlexTuple>) -> Rc<flextuple::FlexTuple>,
+    f: fn(i32, *const flextuple::FlexTuple) -> *const FlexTupleWrap,
     index: i32
 ) -> *const Operator {
     // c_void
-    let op = operators::map::map(Box::new(move | i | {
-        f(index, i)
+    let op = operators::map::map(Box::new(move | i: Rc<flextuple::FlexTuple> | {
+        let r = f(index, Rc::into_raw(i));
+        let mut ft_wrap = unsafe { &(*r) };
+        ft_wrap.ft.clone()
     }));
     Box::into_raw(Box::new(Operator::new(op)))
 }
@@ -239,7 +241,9 @@ pub extern "C" fn external_source_on_next(
 }
 
 #[no_mangle]
-pub extern "C" fn external_source_on_completed(p_source: *mut SourceSubscription) {
+pub extern "C" fn external_source_on_completed(
+    p_source: *mut SourceSubscription
+) {
     let mut source = unsafe { &mut (*p_source) };
     source.on_completed();
 }
