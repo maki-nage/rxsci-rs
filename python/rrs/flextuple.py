@@ -30,7 +30,7 @@ class FlexTupleMeta(ABCMeta):
 
 
 class FlexTuple(ABC, metaclass=FlexTupleMeta):
-    __slots__ = ('__ft')
+    __slots__ = ('__ft', 'own')
 
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -68,12 +68,14 @@ class FlexTuple(ABC, metaclass=FlexTupleMeta):
 
         if builder:
             self.__ft = lib.flextuple_build(builder)
+        self.own = True
         
-    def init_from_native(self, ft):
+    def init_from_native(self, ft, own=True):
         self.__ft = ft
+        self.own = own
 
     def __del__(self):
-        if self.__ft is not None:
+        if self.own:
             lib.flextuple_drop(self.__ft)
 
     def __repr__(self):

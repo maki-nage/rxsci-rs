@@ -33,7 +33,6 @@ extern const void* flextuple_schema_get_handle(const void* p_self);
 // flextuple
 extern void* flextuple_builder(const void* p_schema);
 extern void* flextuple_build(const void* p_self);
-extern void* flextuple_build_from_native(const void* p_self);
 extern void flextuple_drop(const void* p_self);
 extern void flextuple_add_int64(void* p_ft, int64_t value);
 extern void flextuple_add_float64(void* p_ft, double value);

@@ -1,6 +1,5 @@
 use std::rc::Rc;
 use std::sync::Arc;
-use arc_swap::ArcSwap;
 
 use crate::{
     Item, Event, Source,
@@ -34,8 +33,6 @@ where
             let schema_clone1 = schema_clone.clone();
             move |event| {
                 if let Event::Subscribe(sink, state_store) = event {
-                    //let state = State { count: vec![0]};
-                    //let state = ArcSwap::from_pointee(0);
                     let state = state_store.create_state_i64("count");
                     {
                         let key = vec![0];

@@ -28,7 +28,7 @@ run_count = 5
 time_start = time.time()
 for _ in range(run_count):
     rx.from_(gen_nt()).pipe(
-        #ops.map(lambda i: i*2),
+        ops.map(lambda i: i),
         rs.state.with_memory_store(pipeline=[
             rs.ops.count(reduce=False),
             rs.ops.count(reduce=False),
@@ -56,7 +56,7 @@ for _ in range(run_count):
     source = rrs.from_external_source(rx.from_(gen()))
 
     pipeline = rrs.create_pipeline()
-    #rrs.pipeline_add_operator(pipeline, rrs.map(lambda i: i*2))
+    rrs.pipeline_add_operator(pipeline, rrs.map(lambda i: i))
     rrs.pipeline_add_operator(pipeline, rrs.count(reduce=False))
     rrs.pipeline_add_operator(pipeline, rrs.count(reduce=False))
     rrs.pipeline_add_operator(pipeline, rrs.count(reduce=False))

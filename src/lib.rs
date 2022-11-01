@@ -146,11 +146,11 @@ impl Pipeline {
         push_fn(
             core::Event::Subscribe(Rc::new(
                 {
-                    move |event| {
+                    move |event: Event<Rc<flextuple::FlexTuple>, never::Never>| {
                         match event {
                             Event::PushItem(item) => {
                                 //println!("PushItem in subscribe: {}, {}", index, item.value);
-                                on_next(index, Rc::into_raw(item.value));
+                                on_next(index, Rc::into_raw(item.value.clone()));
                                 //println!("done");
                             },
                             Event::PollItem => {
@@ -173,14 +173,15 @@ impl Pipeline {
 
 #[no_mangle]
 pub extern "C" fn map(
-    f: fn(i32, *const flextuple::FlexTuple) -> *const FlexTupleWrap,
+    f: fn(i32, *const flextuple::FlexTuple) -> *const flextuple::FlexTuple,
     index: i32
 ) -> *const Operator {
     // c_void
-    let op = operators::map::map(Box::new(move | i: Rc<flextuple::FlexTuple> | {
+    let op = operators::map::map(Box::new(move | i | {
         let r = f(index, Rc::into_raw(i));
-        let mut ft_wrap = unsafe { &(*r) };
-        ft_wrap.ft.clone()
+        //let mut ft_wrap = unsafe { &(*r) };
+        let mut ft = unsafe { Rc::from_raw(r) };
+        ft.clone()
     }));
     Box::into_raw(Box::new(Operator::new(op)))
 }
@@ -233,11 +234,13 @@ pub extern "C" fn from_external_source(
 #[no_mangle]
 pub extern "C" fn external_source_on_next(
     p_source: *mut SourceSubscription,
-    i: *const FlexTupleWrap
-) {
+    i: *const flextuple::FlexTuple
+) -> *const flextuple::FlexTuple {
     let mut source = unsafe { &mut (*p_source) };
-    let i = unsafe { &(*i) };
-    source.on_next(i.ft.clone());
+    //let i = unsafe { &(*i) };
+    let ft = unsafe { Rc::from_raw(i) };
+    source.on_next(ft.clone());
+    Rc::into_raw(ft)
 }
 
 #[no_mangle]
@@ -466,28 +469,11 @@ pub extern "C" fn flextuple_builder(
 #[no_mangle]
 pub extern "C" fn flextuple_build(
     p_self: *mut flextuple::FlexTuple,
-) -> *const FlexTupleWrap {
+) -> *const flextuple::FlexTuple {
     let ft = unsafe { Box::from_raw(p_self) };
-    let ft_wrap = Box::new(FlexTupleWrap::new(
-        Rc::from(ft)
-    ));
-    Box::into_raw(ft_wrap)
-}
-
-#[no_mangle]
-pub extern "C" fn flextuple_build_from_native(
-    p_self: *mut flextuple::FlexTuple,
-) -> *const FlexTupleWrap {
-    let ft = unsafe { Rc::from_raw(p_self) };
-    let ft_wrap = Box::new(FlexTupleWrap::new(ft));
-    Box::into_raw(ft_wrap)
-}
-
-#[no_mangle]
-pub extern "C" fn flextuple_drop(
-    p_self: *mut FlexTupleWrap
-) {
-    unsafe { Box::from_raw(p_self) };
+    let r = Rc::into_raw(Rc::from(ft));
+    //println!("build {:p}", r);
+    r
 }
 
 #[no_mangle]
@@ -511,33 +497,41 @@ pub extern "C" fn flextuple_add_float64(
 }
 
 #[no_mangle]
+pub extern "C" fn flextuple_drop(
+    p_self: *const flextuple::FlexTuple
+) {
+    let ft = unsafe { Rc::from_raw(p_self) };
+    //println!("drop {} {:p}", Rc::strong_count(&ft), p_self);
+}
+
+#[no_mangle]
 pub extern "C" fn flextuple_get_handle(
-    p_self: *const FlexTupleWrap
+    p_self: *const flextuple::FlexTuple
 ) -> *const c_void {
     if p_self.is_null() {
         panic!("flextuple_get_handle error: FlexTuple is NULL");
     }
 
-    let mut ft_wrap = unsafe { &(*p_self) };    
-    ft_wrap.ft.get_handle()
+    let mut ft = unsafe { &(*p_self) };
+    ft.get_handle()
 }
 
 #[no_mangle]
 pub extern "C" fn flextuple_get_int64_at(
-    p_self: *const FlexTupleWrap,
+    p_self: *const flextuple::FlexTuple,
     index: usize
 ) -> i64
 {
-    let mut ft_wrap = unsafe { &(*p_self) };
-    ft_wrap.ft.get_int64_at(index)
+    let mut ft = unsafe { &(*p_self) };
+    ft.get_int64_at(index)
 }
 
 #[no_mangle]
 pub extern "C" fn flextuple_get_float64_at(
-    p_self: *const FlexTupleWrap,
+    p_self: *const flextuple::FlexTuple,
     index: usize
 ) -> f64
 {
-    let mut ft_wrap = unsafe { &(*p_self) };
-    ft_wrap.ft.get_float64_at(index)
+    let mut ft = unsafe { &(*p_self) };
+    ft.get_float64_at(index)
 }
