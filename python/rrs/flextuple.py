@@ -29,17 +29,16 @@ class FlexTupleMeta(ABCMeta):
         return t
 
 
-class FlexTuple(ABC, metaclass=FlexTupleMeta):
+class FlexTuple(object, metaclass=FlexTupleMeta):
     __slots__ = ('__ft', 'own')
 
     def __init__(self, *args, **kwargs):
-        super().__init__()
         stype = type(self)
         builder = None
         if args:
             if len(args) != len(stype.__fields__):
                 raise ValueError("invalid number of arguments")            
-            builder = lib.flextuple_builder(stype.__schema__)            
+            builder = lib.flextuple_builder(stype.__schema__)
             for arg, field in zip(args, stype.__fields__.items()):
                 ftype = field[1][1]
                 if type(arg) != ftype:
