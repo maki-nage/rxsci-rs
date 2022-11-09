@@ -80,9 +80,10 @@ impl FlexTuple {
     /*Creates a FlexTuple object.
     */
     pub fn new(schema: Rc<FlexSchema>) -> Self {
+        let fields_count = schema.fields.len();
         FlexTuple {
             schema: schema.clone(),
-            data: Vec::new(),
+            data: Vec::with_capacity(fields_count),
         }
     }
 
