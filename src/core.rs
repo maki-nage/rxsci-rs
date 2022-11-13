@@ -18,8 +18,10 @@ pub struct Item<V> {
 #[derive(Clone, Debug)]
 pub enum Event<I, O> {
     Subscribe(Rc<Callbag<O, I>>, Rc<dyn StateStore>),
-    KeyCreated(u64),
-    KeyCompleted(u64),
+    KeyCreated(Key),
+    KeyCompleted(Key),
+    ForwardKeyCreated(Key),
+    ForwardKeyCompleted(Key),
     PushItem(Item<I>),
     //PushNonFatalError(dyn Error),
     PollItem,

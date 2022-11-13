@@ -31,6 +31,12 @@ where
                                                 Event::PushItem(data),
                                             );
                                         },
+                                        Event::KeyCreated(key) => {
+                                            sink(Event::KeyCreated(key));
+                                        },
+                                        Event::KeyCompleted(key) => {
+                                            sink(Event::KeyCompleted(key));
+                                        },
                                         Event::PollItem => {
                                             panic!("source must not pull");
                                         },

@@ -4,46 +4,33 @@ use crate::{
     Item, Event, Source,
 };
 
-pub fn map<
-    I: 'static,
-    O: 'static,
-    F: 'static,
+
+pub fn pop_key<
+    T: 'static,
     S,
->(
-    f: F,
-) -> Box<dyn Fn(S) -> Source<O>>
+>() -> Box<dyn Fn(S) -> Source<T>>
 where
-    F: Fn(I) -> O + Clone, // + Send + Sync,
-    S: Into<Rc<Source<I>>>,
+    S: Into<Rc<Source<T>>>,
 {
     Box::new(move |source| {  // connect
-        //println!("map entry");
-        let source: Rc<Source<I>> = source.into();
+        let source: Rc<Source<T>> = source.into();
         {
-            //println!("map0");
-            let f = f.clone();
-            //println!("map1");
             move |event| {
                 if let Event::Subscribe(sink, state_store) = event {
                     source(
                         Event::Subscribe(Rc::new(
                             {
-                                let f = f.clone();
                                 move |event| {
-                                    match event {
-                                        Event::PushItem(item) => {
+                                    match event {                                        
+                                        Event::PushItem(data) => {
+                                            let mut key = data.key.clone();
+                                            key.pop();
                                             sink(
                                                 Event::PushItem(Item {
-                                                    key: item.key,
-                                                    value: f(item.value),
+                                                    key: key,
+                                                    value: data.value,
                                                 }),
                                             );
-                                        },
-                                        Event::KeyCreated(key) => {
-                                            sink(Event::KeyCreated(key));
-                                        },
-                                        Event::KeyCompleted(key) => {
-                                            sink(Event::KeyCompleted(key));
                                         },
                                         Event::PollItem => {
                                             panic!("source must not pull");
@@ -51,6 +38,19 @@ where
                                         Event::Completed => {
                                             sink(Event::Completed);
                                         },
+                                        Event::ForwardKeyCreated(key) => {
+                                            sink(
+                                                Event::KeyCreated(key),
+                                            );
+                                        },
+                                        Event::ForwardKeyCompleted(key) => {
+                                            sink(
+                                                Event::KeyCompleted(key),
+                                            );
+                                        },
+                                        // drop key events
+                                        Event::KeyCreated(_) => {},
+                                        Event::KeyCompleted(_) => {},
                                         _ => {
                                             panic!("Unexpected event");
                                         }

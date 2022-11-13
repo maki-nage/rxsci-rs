@@ -15,11 +15,11 @@ class Item(FlexTuple):
     value: float
 
 def gen():
-    for i in range(30000):
+    for i in range(100000):
         yield Item(i, float(i/2))
 
 def gen_nt():
-    for i in range(30000):
+    for i in range(100000):
         yield ItemNT(i, float(i/2))
 
 run_count = 5
@@ -54,9 +54,9 @@ def on_next(i):
 
 for _ in range(run_count):
     source = rrs.from_external_source(rx.from_(gen()))
-
+    
     pipeline = rrs.create_pipeline()
-    rrs.pipeline_add_operator(pipeline, rrs.map(lambda i: i))
+    #rrs.pipeline_add_operator(pipeline, rrs.map(lambda i: i))
     rrs.pipeline_add_operator(pipeline, rrs.count(reduce=False))
     rrs.pipeline_add_operator(pipeline, rrs.count(reduce=False))
     rrs.pipeline_add_operator(pipeline, rrs.count(reduce=False))

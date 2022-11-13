@@ -5,10 +5,10 @@ use core::fmt::Debug;
 pub trait State<T: Default> {
     //type Value;
 
-    fn set(&mut self, key: &Vec<usize>, value: &Rc<T>);
-    fn get(&self, key: &Vec<usize>) -> Rc<T>;
-    fn create_key(&mut self, key: &Vec<usize>);
-    fn delete_key(&mut self, key: &Vec<usize>);
+    fn set(&mut self, key: usize, value: &Rc<T>);
+    fn get(&self, key: usize) -> Rc<T>;
+    fn create_key(&mut self, key: usize);
+    fn delete_key(&mut self, key: usize);
 }
 
 pub trait StateStore {
@@ -33,7 +33,6 @@ enum ValueState {
 pub struct MemoryState<T> {
     values: Vec<Rc<T>>,
     states: Vec<ValueState>,
-    keys: Vec<Vec<usize>>,
 }
 
 pub struct MemoryStateStore {
@@ -44,7 +43,6 @@ impl<T> MemoryState<T> {
         MemoryState {
             values: Vec::new(),
             states: Vec::new(),
-            keys: Vec::new(),
         } 
     }
 }
@@ -52,29 +50,29 @@ impl<T> MemoryState<T> {
 impl<T: Default> State<T> for MemoryState<T> {
     //Value: T;
 
-    fn set(&mut self, key: &Vec<usize>, value: &Rc<T>) {
-        self.values[key[0]] = Rc::clone(value);
+    fn set(&mut self, key: usize, value: &Rc<T>) {
+        self.values[key] = Rc::clone(value);
+        self.states[key] = ValueState::Set;
     }
 
-    fn get(&self, key: &Vec<usize>) -> Rc<T> {
-        Rc::clone(&self.values[key[0]])
+    fn get(&self, key: usize) -> Rc<T> {
+        Rc::clone(&self.values[key])
     }
 
-    fn create_key(&mut self, key: &Vec<usize>) {
-        let append_count = key[0]+1 - self.values.len();
+    fn create_key(&mut self, key: usize) {
+        let append_count = key+1 - self.values.len();
         if append_count > 0 {
             for _ in 0..append_count {
                 self.values.push(Rc::new(T::default()));
                 self.states.push(ValueState::Cleared);
-                self.keys.push(Vec::new());
             }
         }
-        self.states[key[0]] = ValueState::NotSet;
-        self.keys[key[0]] = key.clone();
+        self.states[key] = ValueState::NotSet;
     }
 
-    fn delete_key(&mut self, key: &Vec<usize>) {
-        
+    fn delete_key(&mut self, key: usize) {
+        self.values[key] = Rc::new(T::default());
+        self.states[key] = ValueState::Cleared;
     }
 }
 
@@ -86,11 +84,11 @@ impl MemoryStateStore {
 }
 
 impl StateStore for MemoryStateStore {
-    fn create_state_i64(&self, name: &str) -> Rc<RefCell<dyn State<i64>>> {
+    fn create_state_i64(&self, _name: &str) -> Rc<RefCell<dyn State<i64>>> {
         Rc::new(RefCell::new(MemoryState::<i64>::new()))
     }
 
-    fn create_state_i32(&self, name: &str) -> Rc<RefCell<dyn State<i32>>> {
+    fn create_state_i32(&self, _name: &str) -> Rc<RefCell<dyn State<i32>>> {
         Rc::new(RefCell::new(MemoryState::<i32>::new()))
     } 
 }

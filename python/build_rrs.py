@@ -6,6 +6,11 @@ ffibuilder.cdef("""
     extern void* map(void*, int);
     extern void* count(const void* schema, bool);
 
+    extern void* pop_key();
+
+    extern "Python" int64_t split_mapper_cbk(int, void*);
+    extern void* push_key_split(void*, int);
+
     extern const void* create_memory_state_store();
 
     extern "Python" void from_external_source_cbk(int, int, void*);

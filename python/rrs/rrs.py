@@ -9,6 +9,7 @@ class FlexInt(FlexTuple):
     value: int
 
 map_mappers = []
+split_mappers = []
 
 
 @ffi.def_extern()
@@ -50,6 +51,30 @@ def map(mapper):
 def count(reduce):
     return lib.count(FlexInt.__schema__, reduce)
 
+
+@ffi.def_extern()
+def split_mapper_cbk(index, i):
+    t = ffi.from_handle(lib.flextuple_get_handle(i))
+    pi = t()
+    pi.init_from_native(i, own=False)
+
+    r =  split_mappers[index](pi)
+    print(f"split mapper result: {r}")
+    return r  # r.__ft
+
+
+def split(mapper, pipeline):
+    split_mappers.append(mapper)
+    ops =  [
+        lib.push_key_split(lib.split_mapper_cbk, len(split_mappers)-1),
+    ]
+    
+    for op in pipeline:
+        ops.append(op)
+
+    ops.append(lib.pop_key())
+    return ops
+
 def from_external_source(gen):
     external_sources.append(gen)
     return lib.from_external_source(lib.from_external_source_cbk, len(external_sources)-1)
@@ -71,7 +96,11 @@ def create_pipeline():
     return lib.create_pipeline()
 
 def pipeline_add_operator(pipeline, op):
-    lib.pipeline_add_operator(pipeline, op)
+    if type(op) is list:
+        for o in op:
+            lib.pipeline_add_operator(pipeline, o)
+    else:
+        lib.pipeline_add_operator(pipeline, op)
 
 def pipeline_run(pipeline, source):
     lib.pipeline_run(pipeline, source)
@@ -93,6 +122,15 @@ def pipeline_on_next_cbk(index, i):
 
         observer.on_next(pi)
 
+
+def compose(pipeline, ops):
+    for op in ops:
+        if type(op) is list:
+            compose(pipeline, op)
+        else:
+            lib.pipeline_add_operator(pipeline, op)
+    
+    return pipeline
 
 def pipeline_subscribe(pipeline, source, state_store, on_next=None, on_error=None, on_completed=None):
     external_sinks.append(Observer(

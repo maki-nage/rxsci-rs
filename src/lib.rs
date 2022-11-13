@@ -3,11 +3,8 @@
 pub use crate::core::*;
 use never::Never;
 use std::rc::Rc;
-use std::cell::RefCell;
 use std::ffi::{CStr, c_void};
 use std::os::raw::c_char;
-
-use env_logger;
 
 mod core;
 //mod map;
@@ -64,6 +61,7 @@ impl SourceOp {
 
 impl SourceSubscription {
     pub fn new(sink: Rc<core::Callbag<Rc<flextuple::FlexTuple>, Rc<flextuple::FlexTuple>>>, user_index: i64) -> Self {
+        sink(Event::KeyCreated(vec![0]));
         SourceSubscription {
             sink: sink,
             user_index: user_index,
@@ -78,6 +76,7 @@ impl SourceSubscription {
     }
 
     pub fn on_completed(&self) {
+        (self.sink)(Event::KeyCompleted(vec![0]));
         (self.sink)(core::Event::Completed);
     }
 }
@@ -115,26 +114,15 @@ impl Pipeline {
     }
 
     pub fn run(&self, source: Box<SourceOp>) {
-        let i = [1, 2, 3, 4];
-        //println!("{:p}", &i);
-        //let source = sources::from_iterable::from_iterable(i);
         let source = source.src;
-        //println!("created source");
-        let callbag = self.compose(source);
-        /*
-        let sink = sinks::for_each::for_each(Box::new(|i| {
-            println!("{}", i);
-        }));
-        sink(callbag);
-        */
-        //println!("run out") 
+        let _callbag = self.compose(source);
     }
 
     pub fn subscribe(
         &self,
         source: Box<SourceOp>, 
         state: Rc<dyn state::state::StateStore>,
-        on_next: fn(i32, *const flextuple::FlexTuple),
+        on_next: extern fn(i32, *const flextuple::FlexTuple),
         index: i32
     ) {
         //println!("subscribe");
@@ -153,6 +141,8 @@ impl Pipeline {
                                 on_next(index, Rc::into_raw(item.value.clone()));
                                 //println!("done");
                             },
+                            Event::KeyCreated(key) => {},
+                            Event::KeyCompleted(key) => {},
                             Event::PollItem => {
                                 panic!("sink must not pull");
                             },
@@ -173,14 +163,14 @@ impl Pipeline {
 
 #[no_mangle]
 pub extern "C" fn map(
-    f: fn(i32, *const flextuple::FlexTuple) -> *const flextuple::FlexTuple,
+    f: extern fn(i32, *const flextuple::FlexTuple) -> *const flextuple::FlexTuple,
     index: i32
 ) -> *const Operator {
     // c_void
     let op = operators::map::map(Box::new(move | i | {
         let r = f(index, Rc::into_raw(i));
         //let mut ft_wrap = unsafe { &(*r) };
-        let mut ft = unsafe { Rc::from_raw(r) };
+        let ft = unsafe { Rc::from_raw(r) };
         ft.clone()
     }));
     Box::into_raw(Box::new(Operator::new(op)))
@@ -197,6 +187,28 @@ pub extern "C" fn count(
     Box::into_raw(Box::new(Operator::new(op)))
 }
 
+#[no_mangle]
+pub extern "C" fn pop_key() -> *const Operator {
+    let op = operators::pop_key::pop_key();
+    Box::into_raw(Box::new(Operator::new(op)))
+}
+
+#[no_mangle]
+pub extern "C" fn push_key_split(
+    f: extern fn(i32, *const flextuple::FlexTuple) -> i64,
+    index: i32
+) -> *const Operator {
+    let op = operators::push_key_split::push_key_split(
+        Box::new(move | i: &Rc<flextuple::FlexTuple> | {
+            let r = f(index, Rc::into_raw(i.clone()));
+            //let ft = unsafe { Rc::from_raw(r) };
+            //ft.clone()
+            r
+        }
+    ));
+    Box::into_raw(Box::new(Operator::new(op)))
+}
+
 /*
 no_mangle]
 pub extern "C" fn for_each() -> *const Operator {
@@ -209,7 +221,7 @@ pub extern "C" fn for_each() -> *const Operator {
 
 #[no_mangle]
 pub extern "C" fn from_external_source(
-    f: fn(i32, i64, *const SourceSubscription),
+    f: extern fn(i32, i64, *const SourceSubscription),
     index: i64
 ) -> *const SourceOp {
     // c_void
@@ -217,10 +229,10 @@ pub extern "C" fn from_external_source(
         //if let Event::Subscribe(sink) = event {
         //}
         match e {
-            Event::Subscribe(sink, state_store) => {
-                let mut s = Box::new(SourceSubscription::new(sink, index));
+            Event::Subscribe(sink, _state_store) => {
+                let s = Box::new(SourceSubscription::new(sink, index));
                 let raw_s = Box::into_raw(s);
-                //println!("receive subscribe from_external_source");
+                //println!("receive subscribe from_external_source");                
                 f(0, index, raw_s);
             }
             _ => {
@@ -236,7 +248,7 @@ pub extern "C" fn external_source_on_next(
     p_source: *mut SourceSubscription,
     i: *const flextuple::FlexTuple
 ) -> *const flextuple::FlexTuple {
-    let mut source = unsafe { &mut (*p_source) };
+    let source = unsafe { &mut (*p_source) };
     //let i = unsafe { &(*i) };
     let ft = unsafe { Rc::from_raw(i) };
     source.on_next(ft.clone());
@@ -247,12 +259,12 @@ pub extern "C" fn external_source_on_next(
 pub extern "C" fn external_source_on_completed(
     p_source: *mut SourceSubscription
 ) {
-    let mut source = unsafe { &mut (*p_source) };
+    let source = unsafe { &mut (*p_source) };
     source.on_completed();
 }
 
 #[no_mangle]
-pub extern "C" fn to_external_sink(f: fn(i: i32), index: i32) -> *const Operator {
+pub extern "C" fn to_external_sink(_f: extern fn(i: i32), _index: i32) -> *const Operator {
     // c_void
     let op = operators::map::map(Box::new(move | i | { i }));
     Box::into_raw(Box::new(Operator::new(op)))
@@ -262,7 +274,7 @@ pub extern "C" fn to_external_sink(f: fn(i: i32), index: i32) -> *const Operator
 #[no_mangle]
 pub extern "C" fn create_memory_state_store() -> *const StateStore {
 //*const state::state::StateStore {
-    let mut p = Rc::new(state::state::MemoryStateStore::new());
+    let p = Rc::new(state::state::MemoryStateStore::new());
     let ss = Rc::new(StateStore::new(p));
     //Rc::into_raw(p) as *const Rc<dyn state::state::StateStore> as *const libc::c_void
     Rc::into_raw(ss)
@@ -285,31 +297,15 @@ pub extern "C" fn pipeline_add_operator(pipeline_ptr: *mut Pipeline,
         return;
     }
     //println!("pipeline addr: {:p}", pipeline_ptr);
-    let mut pipeline = unsafe { &mut (*pipeline_ptr) };
-    //let mut pipeline = unsafe { Box::from_raw(pipeline_ptr) };
-    //let mut op = unsafe { &(*op_ptr) };
-    //println!("op addr: {:p}", op_ptr);
-    let mut op: Box<Operator> = unsafe { Box::from_raw(op_ptr) };
-    //let mut raw_p = unsafe { &mut *(p_pipeline as *mut Pipeline) };
-    //let mut pipeline = unsafe { Box::from_raw(raw_p) };
-    //println!("value: {}", &pipeline.value);
-    
-    //let op = unsafe { Box::from_raw(p_op) };
+    let pipeline = unsafe { &mut (*pipeline_ptr) };
+    let op: Box<Operator> = unsafe { Box::from_raw(op_ptr) };    
     pipeline.add_operator(op);
-    //println!("create p");
-    //let mut p = Pipeline::new();
-    //println!("add map to p");
-    //p.add_operator(operators::map::map(Box::new(| i | { i+1 })));
-    //println!("run p");
-    //pipeline.run();
-    //println!("ran p");
 }
 
 #[no_mangle]
 pub extern "C" fn pipeline_run(p_pipeline: *mut Pipeline, p_source: *mut SourceOp) {
-    //let mut pipeline = unsafe { Box::from_raw(p_pipeline) };
-    let mut pipeline = unsafe { &mut (*p_pipeline) };
-    let mut source: Box<SourceOp> = unsafe { Box::from_raw(p_source) };
+    let pipeline = unsafe { &mut (*p_pipeline) };
+    let source: Box<SourceOp> = unsafe { Box::from_raw(p_source) };
 
     pipeline.run(source);
 }
@@ -319,12 +315,12 @@ pub extern "C" fn pipeline_subscribe(
     p_pipeline: *mut Pipeline,
     p_source: *mut SourceOp,
     p_state_store: *mut StateStore,
-    on_next: fn(i32, *const flextuple::FlexTuple),
+    on_next: extern fn(i32, *const flextuple::FlexTuple),
     index: i32,
 ) {
     //let mut pipeline = unsafe { Box::from_raw(p_pipeline) };
-    let mut pipeline = unsafe { &mut (*p_pipeline) };
-    let mut source: Box<SourceOp> = unsafe { Box::from_raw(p_source) };
+    let pipeline = unsafe { &mut (*p_pipeline) };
+    let source: Box<SourceOp> = unsafe { Box::from_raw(p_source) };
 
     //println!("pipeline_subscribe");
     ////let mut state_store: Rc<dyn state::state::StateStore> = unsafe { Rc::from_raw(p_state_store) };
@@ -435,7 +431,7 @@ pub extern "C" fn flextuple_schema_get_handle(
         panic!("flextuple_schema_get_handle error: FlexSchema is NULL");
     }
 
-    let mut schema_wrap = unsafe { &(*p_self) };
+    let schema_wrap = unsafe { &(*p_self) };
     schema_wrap.schema.get_handle()
 }
 
@@ -500,8 +496,7 @@ pub extern "C" fn flextuple_add_float64(
 pub extern "C" fn flextuple_drop(
     p_self: *const flextuple::FlexTuple
 ) {
-    let ft = unsafe { Rc::from_raw(p_self) };
-    //println!("drop {} {:p}", Rc::strong_count(&ft), p_self);
+    unsafe { Rc::from_raw(p_self) };
 }
 
 #[no_mangle]
@@ -512,7 +507,7 @@ pub extern "C" fn flextuple_get_handle(
         panic!("flextuple_get_handle error: FlexTuple is NULL");
     }
 
-    let mut ft = unsafe { &(*p_self) };
+    let ft = unsafe { &(*p_self) };
     ft.get_handle()
 }
 
@@ -522,7 +517,7 @@ pub extern "C" fn flextuple_get_int64_at(
     index: usize
 ) -> i64
 {
-    let mut ft = unsafe { &(*p_self) };
+    let ft = unsafe { &(*p_self) };
     ft.get_int64_at(index)
 }
 
@@ -532,6 +527,6 @@ pub extern "C" fn flextuple_get_float64_at(
     index: usize
 ) -> f64
 {
-    let mut ft = unsafe { &(*p_self) };
+    let ft = unsafe { &(*p_self) };
     ft.get_float64_at(index)
 }

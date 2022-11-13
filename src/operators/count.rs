@@ -1,5 +1,4 @@
 use std::rc::Rc;
-use std::sync::Arc;
 
 use crate::{
     Item, Event, Source,
@@ -7,15 +6,10 @@ use crate::{
 
 use crate::flextuple;
 
-
-struct State {
-    pub count: Vec<i32>,
-}
-
 /// counts the number of items 
 /// schema must have one u64 field named value
 pub fn count<
-    I: 'static,
+    //I: 'static + std::fmt::Debug,
     //O: 'static,
     S,
 >(
@@ -23,22 +17,17 @@ pub fn count<
     reduce: bool,    
 ) -> Box<dyn Fn(S) -> Source<Rc<flextuple::FlexTuple>>>
 where
-    S: Into<Rc<Source<I>>>,
+    S: Into<Rc<Source<Rc<flextuple::FlexTuple>>>>,
     //O: Into<i32>,
 {
     let schema_clone = schema.clone();
     Box::new(move |source| {  // connect
-        let source: Rc<Source<I>> = source.into();
+        let source: Rc<Source<Rc<flextuple::FlexTuple>>> = source.into();
         {
             let schema_clone1 = schema_clone.clone();
             move |event| {
                 if let Event::Subscribe(sink, state_store) = event {
                     let state = state_store.create_state_i64("count");
-                    {
-                        let key = vec![0];
-                        let mut s = state.borrow_mut();
-                        s.create_key(&key);                        
-                    }
                     let schema_clone2 = schema_clone1.clone();
                     source(
                         Event::Subscribe(                            
@@ -48,41 +37,53 @@ where
                                     match event {
                                         Event::PushItem(item) => {
                                             let mut s = state.borrow_mut();
-                                            let value = *s.get(&item.key) + 1;
-                                            s.set(&item.key, &Rc::new(value));
-                                            if reduce == false {
-                                                let mut ft = flextuple::FlexTuple::new(schema_clone3);
-                                                ft.add_int64(value);
-                                                sink(
-                                                    Event::PushItem(Item {
-                                                        key: item.key,
-                                                        value: Rc::new(ft),
-                                                    }),
-                                                );
+                                            if let Some(key) = item.key.last() {
+                                                let value = *s.get(*key) + 1;
+                                                s.set(*key, &Rc::new(value));
+                                                if reduce == false {
+                                                    let mut ft = flextuple::FlexTuple::new(schema_clone3);
+                                                    ft.add_int64(value);
+                                                    sink(
+                                                        Event::PushItem(Item {
+                                                            key: item.key,
+                                                            value: Rc::new(ft),
+                                                        }),
+                                                    );
+                                                }
                                             }
                                         },
                                         Event::PollItem => {
                                             panic!("source must not pull");
                                         },
-                                        Event::Completed => {
-                                            if reduce == true {
-                                                let key = vec![0];
-                                                let mut s = state.borrow_mut();
-                                                let value = *s.get(&key);
-
-                                                let mut ft = flextuple::FlexTuple::new(schema_clone3);
-                                                ft.add_int64(value);
-                                                sink(
-                                                    Event::PushItem(Item {
-                                                        key: key,
-                                                        value: Rc::new(ft),
-                                                    }),
-                                                );
+                                        Event::KeyCreated(keys) => {
+                                            println!("KeyCreated");
+                                            let mut s = state.borrow_mut();
+                                            if let Some(key) = keys.last() {
+                                                (*s).create_key(*key);
                                             }
-                                            sink(Event::Completed);
                                         },
-                                        _ => {
-                                            panic!("Unexpected event");
+                                        Event::KeyCompleted(keys) => {
+                                            println!("KeyCompleted");
+                                            let mut s = state.borrow_mut();
+                                            if let Some(key) = keys.last() {
+                                                let k = key.clone();
+                                                if reduce == true {
+                                                    let value = *s.get(*key);
+                                                    let mut ft = flextuple::FlexTuple::new(schema_clone3);
+                                                    ft.add_int64(value);
+                                                    sink(
+                                                        Event::PushItem(Item {
+                                                            key: keys,
+                                                            value: Rc::new(ft),
+                                                        }),
+                                                    );
+                                                }                                                
+                                                (*s).delete_key(k);
+                                            }
+                                        },
+                                        other => {
+                                            sink(other);
+                                            //panic!("Unexpected event: {:?}", other);
                                         }
                                     }
                                 }

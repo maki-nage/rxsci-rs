@@ -3,6 +3,9 @@
 extern void* map(void*, int);
 extern void* count(const void* schema, bool);
 
+extern void* pop_key();
+extern void* push_key_split(void*, int);
+
 extern const void* create_memory_state_store();
 
 extern void* from_external_source(void*, int64_t);

@@ -25,7 +25,7 @@ where
     //Box::new(move || {  // connect
        ({
             move |event| {
-                if let Event::Subscribe(sink, state_store) = event {
+                if let Event::Subscribe(sink, _state_store) = event {
                     let iter = iter.clone().into_iter();
                     for i in iter {
                         sink(
