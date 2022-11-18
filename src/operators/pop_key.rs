@@ -38,15 +38,29 @@ where
                                         Event::Completed => {
                                             sink(Event::Completed);
                                         },
-                                        Event::ForwardKeyCreated(key) => {
-                                            sink(
-                                                Event::KeyCreated(key),
-                                            );
+                                        Event::ForwardKeyCreated(key, level) => {
+                                            if level == 0 {
+                                                sink(
+                                                    Event::KeyCreated(key),
+                                                );
+                                            }
+                                            else {
+                                                sink(
+                                                    Event::ForwardKeyCreated(key, level-1),
+                                                );
+                                            }
                                         },
-                                        Event::ForwardKeyCompleted(key) => {
-                                            sink(
-                                                Event::KeyCompleted(key),
-                                            );
+                                        Event::ForwardKeyCompleted(key, level) => {
+                                            if level == 0 {
+                                                sink(
+                                                    Event::KeyCompleted(key)
+                                                );
+                                            }
+                                            else {
+                                                sink(
+                                                    Event::ForwardKeyCompleted(key, level-1)
+                                                );
+                                            }
                                         },
                                         // drop key events
                                         Event::KeyCreated(_) => {},

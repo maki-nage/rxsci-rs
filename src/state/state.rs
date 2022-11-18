@@ -2,11 +2,18 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use core::fmt::Debug;
 
+#[derive(Clone, Debug)]
+enum ValueState {
+    Cleared,
+    NotSet,
+    Set,
+}
+
 pub trait State<T: Default> {
     //type Value;
 
     fn set(&mut self, key: usize, value: &Rc<T>);
-    fn get(&self, key: usize) -> Rc<T>;
+    fn get(&self, key: usize) -> Option<Rc<T>>;
     fn create_key(&mut self, key: usize);
     fn delete_key(&mut self, key: usize);
 }
@@ -23,12 +30,6 @@ impl Debug for dyn StateStore {
     }
 }
 
-#[derive(Clone, Debug)]
-enum ValueState {
-    Cleared,
-    NotSet,
-    Set,
-}
 
 pub struct MemoryState<T> {
     values: Vec<Rc<T>>,
@@ -55,8 +56,12 @@ impl<T: Default> State<T> for MemoryState<T> {
         self.states[key] = ValueState::Set;
     }
 
-    fn get(&self, key: usize) -> Rc<T> {
-        Rc::clone(&self.values[key])
+    fn get(&self, key: usize) -> Option<Rc<T>> {
+        match self.states[key] {
+            ValueState::Cleared => panic!("key {} does not exist", key),
+            ValueState::NotSet => None,
+            ValueState::Set => Some(Rc::clone(&self.values[key])),
+        }
     }
 
     fn create_key(&mut self, key: usize) {

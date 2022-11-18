@@ -45,6 +45,16 @@ where
                                         Event::KeyCompleted(key) => {
                                             sink(Event::KeyCompleted(key));
                                         },
+                                        Event::ForwardKeyCreated(key, level) => {
+                                            sink(
+                                                Event::ForwardKeyCreated(key, level),
+                                            );
+                                        },
+                                        Event::ForwardKeyCompleted(key, level) => {
+                                            sink(
+                                                Event::ForwardKeyCompleted(key, level)
+                                            );
+                                        },
                                         Event::PollItem => {
                                             panic!("source must not pull");
                                         },

@@ -76,7 +76,7 @@ impl SourceSubscription {
     }
 
     pub fn on_completed(&self) {
-        (self.sink)(Event::KeyCompleted(vec![0]));
+        (self.sink)(core::Event::KeyCompleted(vec![0]));
         (self.sink)(core::Event::Completed);
     }
 }
@@ -147,7 +147,7 @@ impl Pipeline {
                                 panic!("sink must not pull");
                             },
                             Event::Completed => {
-                                print!("completed");
+                                print!("completed sub");
                             },
                             _ => {
                                 panic!("Unexpected event");

@@ -36,11 +36,15 @@ where
                                                 let mut split_key = item.key.clone();
                                                 split_key.push(0);
 
-                                                let current_key = *s.get(*k) ;
-                                                if current_key != new_key {
-                                                    s.set(*k, &Rc::new(new_key));
-                                                    sink(Event::KeyCompleted(split_key.clone()));
-                                                    sink(Event::KeyCreated(split_key.clone()));
+                                                match s.get(*k) {
+                                                    Some(current_key) => {
+                                                        if *current_key != new_key {
+                                                            s.set(*k, &Rc::new(new_key));
+                                                            sink(Event::KeyCompleted(split_key.clone()));
+                                                            sink(Event::KeyCreated(split_key.clone()));
+                                                        }
+                                                    },
+                                                    None => { s.set(*k, &Rc::new(new_key)); }
                                                 }
 
                                                 sink(
@@ -62,8 +66,7 @@ where
                                                 let mut split_key = keys.clone();
                                                 split_key.push(0);
                                                 sink(Event::KeyCreated(split_key));
-
-                                                sink(Event::ForwardKeyCreated(keys));
+                                                sink(Event::ForwardKeyCreated(keys, 0));
                                             }
                                         }
                                         Event::KeyCompleted(keys) => {
@@ -75,9 +78,19 @@ where
                                                 sink(Event::KeyCompleted(split_key));
 
                                                 (*s).delete_key(*key);
-                                                sink(Event::ForwardKeyCompleted(keys));
+                                                sink(Event::ForwardKeyCompleted(keys, 0));
                                             }
                                         }
+                                        Event::ForwardKeyCreated(key, level) => {
+                                            sink(
+                                                Event::ForwardKeyCreated(key, level),
+                                            );
+                                        },
+                                        Event::ForwardKeyCompleted(key, level) => {
+                                            sink(
+                                                Event::ForwardKeyCompleted(key, level)
+                                            );
+                                        },
                                         Event::PollItem => {
                                             panic!("source must not pull");
                                         },
