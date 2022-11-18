@@ -52,7 +52,9 @@ def test_split():
     try:
         ops = [
             rrs.split(lambda i: i.index, pipeline=[
-                rrs.count(reduce=True),
+                rrs.split(lambda i: i.index, pipeline=[
+                    rrs.count(reduce=True),
+                ])
             ])
         ]
         source = rrs.from_external_source(rx.from_(gen()))
@@ -60,7 +62,7 @@ def test_split():
         pipeline = rrs.create_pipeline()
 
         def on_next(i):
-            print('nnnn {}'.format(i))
+            print('sss {}'.format(i))
 
         def on_completed():
             print("on_completed")
