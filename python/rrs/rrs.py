@@ -19,6 +19,7 @@ def map_mapper_cbk(index, i):
     pi.init_from_native(i, own=False)
 
     r =  map_mappers[index](pi)
+    r.clear_own()
     return r.__ft
 
 @ffi.def_extern()
@@ -59,8 +60,8 @@ def split_mapper_cbk(index, i):
     pi.init_from_native(i, own=False)
 
     r =  split_mappers[index](pi)
-    print(f"split mapper result: {r}")
-    return r  # r.__ft
+    r.clear_own()
+    return r.__ft  # r
 
 
 def split(mapper, pipeline):

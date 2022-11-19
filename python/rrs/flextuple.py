@@ -73,6 +73,9 @@ class FlexTuple(object, metaclass=FlexTupleMeta):
         self.__ft = ft
         self.own = own
 
+    def clear_own(self):
+        self.own = False
+
     def __del__(self):
         if self.own:
             lib.flextuple_drop(self.__ft)

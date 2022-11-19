@@ -1,5 +1,6 @@
 import rx
 from rrs import rrs, FlexTuple
+from rrs.rrs import FlexInt
 from _rrs import ffi
 
 class Item(FlexTuple):
@@ -51,8 +52,8 @@ def test_base():
 def test_split():
     try:
         ops = [
-            rrs.split(lambda i: i.index, pipeline=[
-                rrs.split(lambda i: i.index, pipeline=[
+            rrs.split(lambda i: FlexInt(i.index), pipeline=[
+                rrs.split(lambda i: FlexInt(i.index), pipeline=[
                     rrs.count(reduce=True),
                 ])
             ])

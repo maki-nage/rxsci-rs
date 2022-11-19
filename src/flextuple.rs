@@ -10,7 +10,7 @@ flextuple:
 - contains a schema
 */
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FlexField {
     Int64(i64),
     Float64(f64),
@@ -19,7 +19,7 @@ pub enum FlexField {
     FlexTuple(FlexTuple),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SchemaFieldType {
     Int64,
     Float64,
@@ -28,20 +28,20 @@ pub enum SchemaFieldType {
     FlexTuple,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SchemaField {
     name: String,
     field_type: SchemaFieldType,
 }
 
-#[derive(Debug)]
-pub struct FlexSchema {    
+#[derive(Debug, PartialEq)]
+pub struct FlexSchema {
     name: String,
     handle: *const c_void,
     fields: Vec<SchemaField>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default, PartialEq)]
 pub struct FlexTuple {
     schema: Rc<FlexSchema>,
     data: Vec<Rc<FlexField>>
@@ -56,6 +56,15 @@ impl SchemaField {
     }
 }
 
+impl Default for FlexSchema {
+    fn default() -> Self {
+        FlexSchema {
+            name: "".to_string(),
+            handle: null(),
+            fields: Vec::new(),
+        }
+    }
+}
 impl FlexSchema {
     pub fn new(name: String) -> Self {
         FlexSchema {            

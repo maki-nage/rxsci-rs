@@ -195,15 +195,14 @@ pub extern "C" fn pop_key() -> *const Operator {
 
 #[no_mangle]
 pub extern "C" fn push_key_split(
-    f: extern fn(i32, *const flextuple::FlexTuple) -> i64,
+    f: extern fn(i32, *const flextuple::FlexTuple) -> *const flextuple::FlexTuple,
     index: i32
 ) -> *const Operator {
     let op = operators::push_key_split::push_key_split(
         Box::new(move | i: &Rc<flextuple::FlexTuple> | {
             let r = f(index, Rc::into_raw(i.clone()));
-            //let ft = unsafe { Rc::from_raw(r) };
-            //ft.clone()
-            r
+            let ft = unsafe { Rc::from_raw(r) };
+            ft.clone()
         }
     ));
     Box::into_raw(Box::new(Operator::new(op)))

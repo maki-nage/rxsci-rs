@@ -3,6 +3,8 @@ use std::rc::Rc;
 use crate::{
     Item, Event, Source,
 };
+use crate::flextuple;
+
 
 pub fn push_key_split<
     T: 'static,
@@ -12,7 +14,7 @@ pub fn push_key_split<
     key_mapper: F,
 ) -> Box<dyn Fn(S) -> Source<T>>
 where
-    F: Fn(&T) -> i64 + Clone, // + Clone, // + Send + Sync,
+    F: Fn(&T) -> Rc<flextuple::FlexTuple> + Clone, // + Clone, // + Send + Sync,
     S: Into<Rc<Source<T>>>,
 {
     Box::new(move |source| {  // connect
@@ -21,7 +23,8 @@ where
             let key_mapper = key_mapper.clone();
             move |event| {
                 if let Event::Subscribe(sink, state_store) = event {
-                    let state = state_store.create_state_i64("push_key_split");
+                    //let state = state_store.create_state_i64("push_key_split");
+                    let state = state_store.create_state_ft("push_key_split");
                     source(
                         Event::Subscribe(                            
                             Rc::new({             
@@ -38,13 +41,14 @@ where
 
                                                 match s.get(*k) {
                                                     Some(current_key) => {
-                                                        if *current_key != new_key {
-                                                            s.set(*k, &Rc::new(new_key));
+                                                        if *current_key != *new_key {
+                                                            //s.set(*k, &Rc::new(*new_key));
+                                                            s.set(*k, &new_key.clone());
                                                             sink(Event::KeyCompleted(split_key.clone()));
                                                             sink(Event::KeyCreated(split_key.clone()));
                                                         }
                                                     },
-                                                    None => { s.set(*k, &Rc::new(new_key)); }
+                                                    None => { s.set(*k, &new_key.clone()); }
                                                 }
 
                                                 sink(

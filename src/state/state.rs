@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use core::fmt::Debug;
+use crate::flextuple;
 
 #[derive(Clone, Debug)]
 enum ValueState {
@@ -21,6 +22,8 @@ pub trait State<T: Default> {
 pub trait StateStore {
     fn create_state_i64(&self, name: &str) -> Rc<RefCell<dyn State<i64>>>;
     fn create_state_i32(&self, name: &str) -> Rc<RefCell<dyn State<i32>>>;
+    fn create_state_ft(&self, name: &str) -> Rc<RefCell<dyn State<flextuple::FlexTuple>>>;
+    //fn create_state<T>(&self, name: &str) -> Rc<RefCell<dyn State<T>>>;
 }
 
 
@@ -95,5 +98,9 @@ impl StateStore for MemoryStateStore {
 
     fn create_state_i32(&self, _name: &str) -> Rc<RefCell<dyn State<i32>>> {
         Rc::new(RefCell::new(MemoryState::<i32>::new()))
+    }
+
+    fn create_state_ft(&self, _name: &str) -> Rc<RefCell<dyn State<flextuple::FlexTuple>>> {
+        Rc::new(RefCell::new(MemoryState::<flextuple::FlexTuple>::new()))
     } 
 }
