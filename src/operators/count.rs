@@ -40,11 +40,11 @@ where
                                             if let Some(key) = item.key.last() {
                                                 let value = match s.get(*key) {
                                                     Some(value) => {
-                                                        *value + 1
+                                                        value + 1
                                                     },
                                                     None => 1
                                                 };
-                                                s.set(*key, &Rc::new(value));
+                                                s.set(*key, value);
                                                 if reduce == false {
                                                     let mut ft = flextuple::FlexTuple::new(schema_clone3);
                                                     ft.add_int64(value);
@@ -73,7 +73,7 @@ where
                                                 let k = key.clone();
                                                 if reduce == true {
                                                     let value = match s.get(*key) {
-                                                        Some(value) => *value,
+                                                        Some(value) => value,
                                                         None => 0,
                                                     };
                                                     let mut ft = flextuple::FlexTuple::new(schema_clone3);

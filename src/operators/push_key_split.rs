@@ -39,16 +39,16 @@ where
                                                 let mut split_key = item.key.clone();
                                                 split_key.push(0);
 
-                                                match s.get(*k) {
+                                                match s.get_rc(*k) {
                                                     Some(current_key) => {
                                                         if *current_key != *new_key {
                                                             //s.set(*k, &Rc::new(*new_key));
-                                                            s.set(*k, &new_key.clone());
+                                                            s.set_rc(*k, &new_key.clone());
                                                             sink(Event::KeyCompleted(split_key.clone()));
                                                             sink(Event::KeyCreated(split_key.clone()));
                                                         }
                                                     },
-                                                    None => { s.set(*k, &new_key.clone()); }
+                                                    None => { s.set_rc(*k, &new_key.clone()); }
                                                 }
 
                                                 sink(

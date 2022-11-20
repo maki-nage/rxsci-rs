@@ -13,8 +13,10 @@ enum ValueState {
 pub trait State<T: Default> {
     //type Value;
 
-    fn set(&mut self, key: usize, value: &Rc<T>);
-    fn get(&self, key: usize) -> Option<Rc<T>>;
+    fn set(&mut self, key: usize, value: T);
+    fn get(&self, key: usize) -> Option<T>;
+    fn set_rc(&mut self, key: usize, value: &Rc<T>);
+    fn get_rc(&self, key: usize) -> Option<Rc<T>>;
     fn create_key(&mut self, key: usize);
     fn delete_key(&mut self, key: usize);
 }
@@ -35,6 +37,11 @@ impl Debug for dyn StateStore {
 
 
 pub struct MemoryState<T> {
+    values: Vec<T>,
+    states: Vec<ValueState>,
+}
+
+pub struct MemoryStateRc<T> {
     values: Vec<Rc<T>>,
     states: Vec<ValueState>,
 }
@@ -51,15 +58,68 @@ impl<T> MemoryState<T> {
     }
 }
 
-impl<T: Default> State<T> for MemoryState<T> {
-    //Value: T;
+impl<T> MemoryStateRc<T> {
+    fn new() -> Self {
+        MemoryStateRc {
+            values: Vec::new(),
+            states: Vec::new(),
+        }
+    }
+}
 
-    fn set(&mut self, key: usize, value: &Rc<T>) {
+impl<T: Default + Copy> State<T> for MemoryState<T> {
+    fn set(&mut self, key: usize, value: T) {
+        self.values[key] = value;
+        self.states[key] = ValueState::Set;
+    }
+
+    fn get(&self, key: usize) -> Option<T> {
+        match self.states[key] {
+            ValueState::Cleared => panic!("key {} does not exist", key),
+            ValueState::NotSet => None,
+            ValueState::Set => Some(self.values[key]),
+        }
+    }
+
+    fn set_rc(&mut self, key: usize, value: &Rc<T>) {
+        panic!("set_rc is invalid in MemoryState");
+    }
+    fn get_rc(&self, key: usize) -> Option<Rc<T>> {
+        panic!("get_rc is invalid in MemoryState");
+    }
+
+    fn create_key(&mut self, key: usize) {
+        let append_count = key+1 - self.values.len();
+        if append_count > 0 {
+            for _ in 0..append_count {
+                self.values.push(T::default());
+                self.states.push(ValueState::Cleared);
+            }
+        }
+        self.states[key] = ValueState::NotSet;
+    }
+
+    fn delete_key(&mut self, key: usize) {
+        self.values[key] = T::default();
+        self.states[key] = ValueState::Cleared;
+    }
+}
+
+impl<T: Default> State<T> for MemoryStateRc<T>
+{
+    fn set(&mut self, key: usize, value: T) {
+        panic!("set is invalid in MemoryStateRc");
+    }
+    fn get(&self, key: usize) -> Option<T> {
+        panic!("get is invalid in MemoryStateRc");
+    }
+
+    fn set_rc(&mut self, key: usize, value: &Rc<T>) {
         self.values[key] = Rc::clone(value);
         self.states[key] = ValueState::Set;
     }
 
-    fn get(&self, key: usize) -> Option<Rc<T>> {
+    fn get_rc(&self, key: usize) -> Option<Rc<T>> {
         match self.states[key] {
             ValueState::Cleared => panic!("key {} does not exist", key),
             ValueState::NotSet => None,
@@ -101,6 +161,6 @@ impl StateStore for MemoryStateStore {
     }
 
     fn create_state_ft(&self, _name: &str) -> Rc<RefCell<dyn State<flextuple::FlexTuple>>> {
-        Rc::new(RefCell::new(MemoryState::<flextuple::FlexTuple>::new()))
+        Rc::new(RefCell::new(MemoryStateRc::<flextuple::FlexTuple>::new()))
     } 
 }
